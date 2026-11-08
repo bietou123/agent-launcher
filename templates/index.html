@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 启动助手</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">A</span>
+      <div>
+        <h1>Agent 启动助手</h1>
+        <p>一个按钮 = 一个 agent</p>
+      </div>
+    </div>
+    <div class="health">
+      <span id="proxyDot" class="dot"></span>
+      <span id="proxyText">健康检查检测中</span>
+    </div>
+  </header>
+
+  <section class="cwd-section">
+    <div class="section-label">
+      <span>工作目录</span>
+      <span id="cwdCurrent" class="cwd-current"></span>
+    </div>
+    <div id="cwdList" class="cwd-list"></div>
+  </section>
+
+  <main id="board"></main>
+
+  <footer class="footer">
+    <span id="lastLaunched">还没有启动记录</span>
+    <span class="hint">点卡片直接启动 · 目录按钮先选后点</span>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const state = { agents: [], projects: [], cwd: '', running: {} };
+
+    async function load() {
+      const r = await fetch('/api/agents').then(x => x.json());
+      state.agents = r.agents;
+      state.projects = r.projects;
+      state.cwd = r.lastCwd;
+      renderProjects();
+      renderBoard();
+      if (r.lastLaunched) {
+        document.getElementById('lastLaunched').textContent =
+          `最近启动：${r.lastLaunched.name} · ${r.lastLaunched.at}`;
+      }
+      poll();
+      setInterval(poll, 10000);
+    }
+
+    function renderProjects() {
+      const box = document.getElementById('cwdList');
+      box.innerHTML = '';
+      state.projects.forEach(p => {
+        const b = document.createElement('button');
+        b.className = 'cwd-chip' + (p.path === state.cwd ? ' active' : '');
+        b.textContent = p.label;
+        b.title = p.path;
+        b.onclick = () => {
+          state.cwd = p.path;
+          renderProjects();
+        };
+        box.appendChild(b);
+      });
+      document.getElementById('cwdCurrent').textContent = state.cwd;
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('board');
+      board.innerHTML = '';
+      const groups = [
+        { key: 'cli', title: '命令行' },
+        { key: 'gui', title: '桌面应用' }
+      ];
+      groups.forEach(g => {
+        const items = state.agents.filter(a => (a.group || 'cli') === g.key);
+        if (!items.length) return;
+        const sec = document.createElement('section');
+        sec.className = 'group';
+        sec.innerHTML = `<h2>${g.title}</h2>`;
+        const grid = document.createElement('div');
+        grid.className = 'grid';
+        items.forEach(a => grid.appendChild(card(a)));
+        sec.appendChild(grid);
+        board.appendChild(sec);
+      });
+    }
+
+    function card(a) {
+      const el = document.createElement('button');
+      el.className = 'card';
+      el.dataset.id = a.id;
+      el.innerHTML = `
+        <span class="card-icon" style="--c:${a.color || '#888'}">${a.icon || '?'}</span>
+        <span class="card-body">
+          <span class="card-name">${a.name}</span>
+          <span class="card-sub">${a.subtitle || ''}</span>
+        </span>
+        <span class="card-state">启动</span>`;
+      el.onclick = () => launch(a, el);
+      return el;
+    }
+
+    async function launch(a, el) {
+      const old = el.querySelector('.card-state').textContent;
+      el.classList.add('busy');
+      el.querySelector('.card-state').textContent = '启动中…';
+      try {
+        const r = await fetch('/api/launch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ agentId: a.id, cwd: state.cwd })
+        }).then(x => x.json());
+        if (!r.ok) throw new Error(r.error || '启动失败');
+        el.querySelector('.card-state').textContent = '已启动 ✓';
+        toast(`已启动 ${a.name}`);
+        document.getElementById('lastLaunched').textContent =
+          `最近启动：${a.name} · ${new Date().toLocaleString('zh-CN')}`;
+        setTimeout(poll, 1200);
+      } catch (e) {
+        el.querySelector('.card-state').textContent = old;
+        toast(e.message, true);
+      } finally {
+        el.classList.remove('busy');
+        setTimeout(() => {
+          const s = el.querySelector('.card-state');
+          if (s.textContent === '已启动 ✓') s.textContent = '启动';
+        }, 4000);
+      }
+    }
+
+    async function poll() {
+      try {
+        const s = await fetch('/api/status').then(x => x.json());
+        state.running = s.running || {};
+        const dot = document.getElementById('proxyDot');
+        const txt = document.getElementById('proxyText');
+        const h = s.health || {};
+        dot.className = 'dot ' + (!h.configured ? 'idle' : (h.ok ? 'ok' : 'bad'));
+        txt.textContent = !h.configured
+          ? '未配置健康检查'
+          : (h.ok ? h.label + ' 就绪' : h.label + ' 未启动');
+        document.querySelectorAll('.card').forEach(el => {
+          const running = state.running[el.dataset.id];
+          el.classList.toggle('running', !!running);
+        });
+      } catch (e) { /* 服务重启中，忽略 */ }
+    }
+
+    let toastTimer;
+    function toast(msg, bad) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (bad ? ' bad' : '');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => t.className = 'toast', 2600);
+    }
+
+    load();
+  </script>
+</body>
+</html>

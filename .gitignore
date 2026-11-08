@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.spec
+
+# 本机配置与运行时状态（仓库里只有脱敏的 agents.example.json）
+agents.json
+state.json
+launcher.log
+
+# 打包产物
+build/
+dist/
+*.exe
+
+# 含本机路径的截图，不发布
+docs/

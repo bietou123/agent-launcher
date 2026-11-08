@@ -1,0 +1,51 @@
+{
+  "port": 8765,
+  "projects": {
+    "scan": [
+      "%USERPROFILE%\\Projects"
+    ],
+    "pinned": [],
+    "allowedRoots": [
+      "%USERPROFILE%\\Projects"
+    ]
+  },
+  "excludeProjects": [
+    "AgentLauncher"
+  ],
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "subtitle": "官方 CLI · %APPDATA%\\npm",
+      "group": "cli",
+      "type": "cli",
+      "command": "%APPDATA%\\npm\\claude.cmd",
+      "icon": "C",
+      "color": "#d97757",
+      "process": "node.exe"
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "subtitle": "官方 CLI · %APPDATA%\\npm",
+      "group": "cli",
+      "type": "cli",
+      "command": "%APPDATA%\\npm\\codex.cmd",
+      "icon": "X",
+      "color": "#8a93a6",
+      "process": "node.exe"
+    },
+    {
+      "id": "notepad",
+      "name": "记事本",
+      "subtitle": "示例：改成本机任意 exe",
+      "group": "gui",
+      "type": "gui",
+      "exe": "%SystemRoot%\\System32\\notepad.exe",
+      "cwd": "exe",
+      "icon": "N",
+      "color": "#3fbf7f",
+      "process": "notepad.exe"
+    }
+  ]
+}
